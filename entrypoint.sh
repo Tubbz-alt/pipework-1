@@ -1,6 +1,6 @@
 #!/bin/bash
 
-_pipework_image_name="dreamcat4/pipework"
+_pipework_image_name="local/pipework:2.0"
 _global_vars="run_mode host_routes host_route_arping host_route_protocols up_time key cmd sleep debug event_filters cleanup_wait retry_delay inter_delay route_add_delay"
 
 for _var in $_global_vars; do
@@ -18,7 +18,7 @@ _default_cleanup_wait="0" # for dhcp default busybox udhcpc
 _pipework="$_debug /sbin/pipework"
 _args="$@"
 
-export DOCKER_HOST=${DOCKER_HOST:-"unix:///docker.sock"}
+#export DOCKER_HOST=${DOCKER_HOST:-"unix:///docker.sock"}
 _test_docker ()
 {
 	# Test for docker socket and client
@@ -37,78 +37,6 @@ _cleanup ()
     exit 0
 }
 trap _cleanup TERM INT QUIT HUP
-
-_setup_container_for_host_access ()
-{
-    # ---------------------------------------------------------------------------------
-    # Taken from https://github.com/jpetazzo/dind/blob/master/wrapdocker
-    # Configure our container's environment to look more like the host environment
-    # for /proc,cgroups,etc. Apache 2.0 License, Credit @ github.com/jpetazzo/dind
-    # ---------------------------------------------------------------------------------
-
-    # First, make sure that cgroups are mounted correctly.
-    CGROUP=/sys/fs/cgroup
-    : {LOG:=stdio}
-
-    [ -d $CGROUP ] ||
-        mkdir $CGROUP
-
-    mountpoint -q $CGROUP ||
-        mount -n -t tmpfs -o uid=0,gid=0,mode=0755 cgroup $CGROUP || {
-            echo "Could not make a tmpfs mount. Did you use -privileged?"
-            exit 1
-        }
-
-    if [ -d /sys/kernel/security ] && ! mountpoint -q /sys/kernel/security
-    then
-        mount -t securityfs none /sys/kernel/security || {
-            echo "Could not mount /sys/kernel/security."
-            echo "AppArmor detection and -privileged mode might break."
-        }
-    fi
-
-    # Mount the cgroup hierarchies exactly as they are in the parent system.
-    for SUBSYS in $(cut -d: -f2 /proc/1/cgroup)
-    do
-            [ -d $CGROUP/$SUBSYS ] || mkdir $CGROUP/$SUBSYS
-            mountpoint -q $CGROUP/$SUBSYS ||
-                    mount -n -t cgroup -o $SUBSYS cgroup $CGROUP/$SUBSYS
-
-            # The two following sections address a bug which manifests itself
-            # by a cryptic "lxc-start: no ns_cgroup option specified" when
-            # trying to start containers withina container.
-            # The bug seems to appear when the cgroup hierarchies are not
-            # mounted on the exact same directories in the host, and in the
-            # container.
-
-            # Named, control-less cgroups are mounted with "-o name=foo"
-            # (and appear as such under /proc/<pid>/cgroup) but are usually
-            # mounted on a directory named "foo" (without the "name=" prefix).
-            # Systemd and OpenRC (and possibly others) both create such a
-            # cgroup. To avoid the aforementioned bug, we symlink "foo" to
-            # "name=foo". This shouldn't have any adverse effect.
-            echo $SUBSYS | grep -q ^name= && {
-                    NAME=$(echo $SUBSYS | sed s/^name=//)
-                    ln -s $SUBSYS $CGROUP/$NAME
-            }
-
-            # Likewise, on at least one system, it has been reported that
-            # systemd would mount the CPU and CPU accounting controllers
-            # (respectively "cpu" and "cpuacct") with "-o cpuacct,cpu"
-            # but on a directory called "cpu,cpuacct" (note the inversion
-            # in the order of the groups). This tries to work around it.
-            [ $SUBSYS = cpuacct,cpu ] && ln -s $SUBSYS $CGROUP/cpu,cpuacct
-    done
-
-    # Note: as I write those lines, the LXC userland tools cannot setup
-    # a "sub-container" properly if the "devices" cgroup is not in its
-    # own hierarchy. Let's detect this and issue a warning.
-    grep -q :devices: /proc/1/cgroup ||
-        echo "WARNING: the 'devices' cgroup should be in its own hierarchy."
-    grep -qw devices /proc/1/cgroup ||
-        echo "WARNING: it looks like the 'devices' cgroup is not mounted."
-    # ---------------------------------------------------------------------------------
-}
 
 _expand_macros ()
 {
@@ -345,10 +273,13 @@ _process_container ()
     event="$2" # start|stop
     unset $(env | grep -e ".*pipework.*" | cut -d= -f1)
 
+    # Next 3 lines parses the docker inspect of the container and grabs the pertinent information out (env vars that pipework uses)
     _pipework_vars="$(docker inspect --format '{{range $index, $val := .Config.Env }}{{printf "%s\"\n" $val}}{{end}}' $c12id \
         | grep -e 'pipework_cmd.*=\|^pipework_key=\|pipework_host_route.*='| sed -e 's/^/export "/g')"
     [ "$_pipework_vars" ] || return 0
 
+    # Picks the macros formed by @*****@ out of the _pipework_vars and stores them in _macros, then calls on _expand_macros to parse them to information
+    # Planned macro support: @NODE_NUM@,
     _macros="$(echo -e "$_pipework_vars" | grep -o -e '@CONTAINER_NAME@\|@CONTAINER_ID@\|@HOSTNAME@\|@INSTANCE@\|@COMPOSE_PROJECT_NAME@' | sort | uniq)"
     [ "$_macros" ] && _expand_macros;
 
@@ -358,6 +289,8 @@ _process_container ()
     _pipework_cmds="$(env | grep -o -e '[^=]*pipework_cmd[^=]*' | sort)"
     [ "$_pipework_cmds" ]  || return 0
 
+
+    # If the container is dying, initiate some proper cleanup and exit
     if [ "$event" = "die" ]; then
         cleanup_wait="$_default_cleanup_wait"
         [ "$_pipework_cleanup_wait" ] && cleanup_wait="$_pipework_cleanup_wait"
@@ -366,12 +299,14 @@ _process_container ()
         return 0
     fi
 
+    # If the event is not death, then the container has started and as such we need to run pipework
     for pipework_cmd_varname in $_pipework_cmds; do
         pipework_cmd="$(eval echo "\$$pipework_cmd_varname")"
 
         # Run pipework
         _run_pipework;
 
+	# These next lines never get used in our use cases, however are left in as they should still work
         pipework_host_route_varname="$(echo "$pipework_cmd_varname" | sed -e 's/pipework_cmd/pipework_host_route/g')"
         pipework_host_route="$(eval echo "\$$pipework_host_route_varname")"
 
@@ -407,22 +342,6 @@ _daemon ()
         unset IFS
     fi
 
-    # _filters_json="{%22event%22:[%22start%22]"
-    # if [ "$_pipework_event_filters" ]; then
-    #     IFS=,
-    #     for filter in $_pipework_event_filters; do
-    #         _filters_json="${_filters_json},%22${filter%=*}%22:[%22${filter#*=}%22]"
-    #     done
-    #     unset IFS
-    # fi
-    # _filters_json="$_filters_json}"
-
-    # [ "$_batch_start_time" ] && _pe_opts="${_pe_opts}&since=$_batch_start_time"
-    # [ "$_pipework_up_time" ] && _pe_opts="${_pe_opts}&until=$(expr $(date +%s) + $_pipework_up_time)"
-
-    # docker_events_query="/events?filters=${_filters_json}${_pe_opts}"
-
-
     # Create docker events log
     _docker_events_log="/tmp/docker-events.log"
     rm -f $_docker_events_log
@@ -430,6 +349,7 @@ _daemon ()
     chmod 0600 $_docker_events_log
 
     # http://stackoverflow.com/questions/1652680/how-to-get-the-pid-of-a-process-that-is-piped-to-another-process-in-bash
+    # Create a background loop that constantly runs, waiting on the tail of /tmp/docker-events.log Only stops when the script cleanup trap hits
     tail_f_pid_file="$(mktemp -u --suffix=.pid /var/run/tail_f.XXX)"
     ( tail -f $_docker_events_log & echo $! >&3 ) 3>$tail_f_pid_file | \
     while true
@@ -438,47 +358,36 @@ _daemon ()
         echo event_line=$event_line
 
         # using $ docker events
-        # _pipework_image_name=pipework
-        # event_line="2015-06-10T16:38:12.000000000Z 753ce24472db2af099328ad161f1af70da0f4bc9fa00af2a4e82625f56eb67f2: (from dreamcat4/tvheadend:latest) start"
-        event_line_sanitized="$(echo -e " $event_line" | grep -v "from $_pipework_image_name" | tr -s ' ')"
-        container_id="$(echo -e "$event_line_sanitized" | cut -d ' ' -f3)"
-        event="$(echo -e "$event_line_sanitized" | cut -d ' ' -f6)"
+	# event_line= 2016-08-09T14:33:09.210895432Z container die 49f8f33ae0ae9b17328c2dcd3ac4564952201ddc7202af0f86523bfd6f71f471 (exitCode=0, image=debian:8.5, name=pwt)
+
+	# Ignore any containers that are from the image that this container is from
+        event_line_sanitized="$(echo -e "$event_line" | grep -v "image=$_pipework_image_name" | tr -s ' ')"
+
+	# Pull the container ID from the event line
+        container_id="$(echo -e "$event_line_sanitized" | cut -d ' ' -f4)"
+
+	# Pull the event (start|stop)
+        event="$(echo -e "$event_line_sanitized" | cut -d ' ' -f3)"
+
+	# Next 3 lines are for debugging purposes
         # echo event_line_sanitized=$event_line_sanitized
         # echo container_id=$container_id
         # echo event=$event
+
+	#Check if we successfully pulled something to container ID and pass the ID and event to _process_container()
         [ "$container_id" ] && _process_container ${container_id%:} $event;
 
-        # read -d "}" event_line
-        # echo event_line=$event_line}
-
-        # # using $ netcat
-        # # {"status":"start","id":"ca3b678ef3b6924e18361ddd48f7cf4f3deb82fb0dc42a59c2bcf1fdd6c9e1ad","from":"dreamcat4/pipework:latest","time":1433759001}
-        # container_id="$(echo -e "$event_line}" | tail -1 | jq -r .id)"
-        # event="$(echo -e "$event_line}" | tail -1 | jq -r .status)"
-        # [ "$container_id" ] && _process_container $container_id $event;
-
-        # # using $ curl 7.42
-        # # {"status":"start","id":"ca3b678ef3b6924e18361ddd48f7cf4f3deb82fb0dc42a59c2bcf1fdd6c9e1ad","from":"dreamcat4/pipework:latest","time":1433759001}
-        # container_id="$(echo -e "$event_line}" | jq -r .id)"
-        # event="$(echo -e "$event_line}" | jq -r .status)"
-        # [ "$container_id" ] && _process_container $container_id $event;
-
-    # done < $_docker_events_fifo &
     done &
+
+    # At the same time, we store the pid of the running loop and handle piping events to the /tmp/docker-events.log file
     _while_read_pid=$!
     _tail_f_pid=$(cat $tail_f_pid_file) && rm -f $tail_f_pid_file
 
-    # Start to listen for new container start events and write them to the events log
+    # Start to listen for new container start events and write them to the events log.
+    # This sees only events that are start or stop, as well as gives you the ability to set custom filters
     docker events $_pe_opts --filter='event=start' --filter='event=die' \
         $_pipework_daemon_event_opts > $_docker_events_log &
     _docker_events_pid=$!
-
-    # # requires curl 7.42
-    # # curl -sS --no-buffer -XGET --unix-socket /docker.sock http:/events > $_docker_events_log &
-    # _docker_events_pid=$!
-
-    # echo -e "GET $docker_events_query HTTP/1.0\r\n" | nc -U /docker.sock > $_docker_events_log &
-    # _docker_events_pid=$!
 
     # Wait until 'docker events' command is killed by 'trap _cleanup ...'
     wait $_docker_events_pid
@@ -552,5 +461,4 @@ _main ()
 
 # Begin
 _test_docker;
-_setup_container_for_host_access;
 _main;
