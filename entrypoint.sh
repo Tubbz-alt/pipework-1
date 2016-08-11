@@ -119,7 +119,7 @@ _process_container ()
     unset $(env | grep -e ".*pipework.*" | cut -d= -f1)
 
     # Next 3 lines parses the docker inspect of the container and grabs the pertinent information out (env vars that pipework uses)
-    _pipework_vars="$(docker inspect --format '{{range $index, $val := .Config.Env }}{{printf "%s\"\n" $val}}{{end}}' $c12id | grep -e 'pipework_cmd.*=\|^pipework_key=\|pipework_host_route.*='| sed -e 's/^/export "/g')"
+    _pipework_vars="$(docker inspect --format '{{range $index, $val := .Config.Env }}{{printf "%s\"\n" $val}}{{end}}' $c12id | grep -e 'pipework_cmd.*=\|^pipework_key=\|pipework_host_route.*='| sed -e 's/^/export \"/g')"
     [ "$_pipework_vars" ] || return 0
 
     echo "$_pipework_vars"
