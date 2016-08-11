@@ -61,10 +61,16 @@ _expand_macros ()
             _pipework_vars="$(echo "$_pipework_vars" | sed -e "s|@INSTANCE@|${instance}|g")"
             ;;
 
+    	    @NODE_NUM@)
+            nodenum="$(hostname | grep -o -e '[0-9]*' | tail -1)"
+	    _pipework_vars="$(echo "$_pipework_vars" | sed -e "s|@NODE_NUM@|${nodenum}|g")"
+	    ;;
+
             @COMPOSE_PROJECT_NAME@)
             projectname="$(docker inspect   --format "{{ index .Config.Labels \"com.docker.compose.project\"}}" ${c12id})"
             _pipework_vars="$(echo "$_pipework_vars" | sed -e "s|@COMPOSE_PROJECT_NAME@|${projectname}|g")"
             ;;
+
         esac
     done
 }
@@ -113,8 +119,7 @@ _process_container ()
     unset $(env | grep -e ".*pipework.*" | cut -d= -f1)
 
     # Next 3 lines parses the docker inspect of the container and grabs the pertinent information out (env vars that pipework uses)
-    _pipework_vars="$(docker inspect --format '{{range $index, $val := .Config.Env }}{{printf "%s\"\n" $val}}{{end}}' $c12id \
-        | grep -e 'pipework_cmd.*=\|^pipework_key=\|pipework_host_route.*='| sed -e 's/^/export "/g')"
+    _pipework_vars="$(docker inspect --format '{{range $index, $val := .Config.Env }}{{printf "%s\"\n" $val}}{{end}}' $c12id | grep -e 'pipework_cmd.*=\|^pipework_key=\|pipework_host_route.*='| sed -e 's/^/export "/g"')"
     [ "$_pipework_vars" ] || return 0
 
     echo "$_pipework_vars"
