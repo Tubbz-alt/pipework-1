@@ -2,7 +2,7 @@
 ## Docker-Pipework
 **_A docker image of jpetazzo's pipework_**
 
-![dependencies docker-1.12.0](https://img.shields.io/badge/dependencies-docker--1.6.0-green.svg)
+![dependencies docker-1.12.0](https://img.shields.io/badge/dependencies-docker--1.12.0-green.svg)
 
 For documentation ---> [here](https://github.com/bauerm97/pipework/blob/master/docs/0.%20Introduction.md).
 
