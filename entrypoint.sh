@@ -278,9 +278,11 @@ _process_container ()
         | grep -e 'pipework_cmd.*=\|^pipework_key=\|pipework_host_route.*='| sed -e 's/^/export "/g')"
     [ "$_pipework_vars" ] || return 0
 
+    echo "$_pipework_vars"
+
     # Picks the macros formed by @*****@ out of the _pipework_vars and stores them in _macros, then calls on _expand_macros to parse them to information
     # Planned macro support: @NODE_NUM@,
-    _macros="$(echo -e "$_pipework_vars" | grep -o -e '@CONTAINER_NAME@\|@CONTAINER_ID@\|@HOSTNAME@\|@INSTANCE@\|@COMPOSE_PROJECT_NAME@' | sort | uniq)"
+    _macros="$(echo -e "$_pipework_vars" | grep -o -e '@CONTAINER_NAME@\|@CONTAINER_ID@\|@HOSTNAME@\|@INSTANCE@\|@COMPOSE_PROJECT_NAME@\|@NODE_NUM@' | sort | uniq)"
     [ "$_macros" ] && _expand_macros;
 
     eval $_pipework_vars
