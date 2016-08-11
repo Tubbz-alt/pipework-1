@@ -2,13 +2,11 @@
 ## Docker-Pipework
 **_A docker image of jpetazzo's pipework_**
 
-![dependencies docker-1.6.0](https://img.shields.io/badge/dependencies-docker--1.6.0-green.svg)
+![dependencies docker-1.12.0](https://img.shields.io/badge/dependencies-docker--1.6.0-green.svg)
 
-![dependencies docker-compose-1.3.0](https://img.shields.io/badge/dependencies-docker--compose--1.3.0-green.svg)
+For documentation ---> [here](https://github.com/bauerm97/pipework/blob/master/docs/0.%20Introduction.md).
 
-For documentation ---> [here](https://github.com/dreamcat4/docker-images/blob/master/pipework/0.%20Introduction.md).
-
-Page on DockerHub ---> [here](https://registry.hub.docker.com/u/dreamcat4/pipework/).
+### Page on DockerHub ---> [here](https://registry.hub.docker.com/u/dreamcat4/pipework/).
 
 For older [Docker v1.7.1 compatibility](https://github.com/dreamcat4/docker-images/issues/19), please use Larry's fork over here ---> [larrycai/pipework:1.7.1](https://hub.docker.com/r/larrycai/pipework/tags/).
 
