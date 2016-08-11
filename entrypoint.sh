@@ -18,7 +18,6 @@ _default_cleanup_wait="0" # for dhcp default busybox udhcpc
 _pipework="$_debug /sbin/pipework"
 _args="$@"
 
-#export DOCKER_HOST=${DOCKER_HOST:-"unix:///docker.sock"}
 _test_docker ()
 {
 	# Test for docker socket and client
@@ -309,12 +308,12 @@ _process_container ()
         _run_pipework;
 
 	# These next lines never get used in our use cases, however are left in as they should still work
-        pipework_host_route_varname="$(echo "$pipework_cmd_varname" | sed -e 's/pipework_cmd/pipework_host_route/g')"
-        pipework_host_route="$(eval echo "\$$pipework_host_route_varname")"
+        # pipework_host_route_varname="$(echo "$pipework_cmd_varname" | sed -e 's/pipework_cmd/pipework_host_route/g')"
+        # pipework_host_route="$(eval echo "\$$pipework_host_route_varname")"
 
-        if [ "$_pipework_host_routes" ] || [ "$pipework_host_routes" ] || [ "$pipework_host_route" ]; then
-            _create_host_route "$c12id" "${pipework_cmd#pipework }";
-        fi
+        # if [ "$_pipework_host_routes" ] || [ "$pipework_host_routes" ] || [ "$pipework_host_route" ]; then
+        #     _create_host_route "$c12id" "${pipework_cmd#pipework }";
+        # fi
 
 
     done
