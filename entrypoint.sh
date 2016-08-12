@@ -51,8 +51,19 @@ _get_free_ip ()
 _alloc_ip ()
 {
     if [ "$_free_ips" ]; then
-
+	_ip_to_alloc=${_free_ips[0]}
+	unset _free_ips[0]
+	_alloc_ips[${#_alloc_ips[@]}]=$_ip_to_alloc
+    else
+	_ip_index[1]+=1
+	if [ "${_ip_index[1]}" -eq 255 ]; then
+	   _ip_index[1]=1
+	   _ip_index[0]+=1
+	fi
+	_ip_to_alloc="192.@NODE_NUM@.${_ip_index[0]}.${_ip_index[1]}"
+	_alloc_ips[${#_alloc_ips[@]}]=$_ip_to_alloc
     fi
+    return _ip_to_alloc
 }
 
 _dealloc_ip ()
