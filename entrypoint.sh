@@ -17,6 +17,9 @@ done
 _default_cleanup_wait="0" # for dhcp default busybox udhcpc
 _pipework="$_debug /sbin/pipework"
 _args="$@"
+_free_ips=()
+_alloc_ips=()
+_ip_index=(1 1)
 
 _test_docker ()
 {
@@ -37,8 +40,31 @@ _cleanup ()
 }
 trap _cleanup TERM INT QUIT HUP
 
+_get_free_ip ()
+{
+    
+}
+
+
+# IF _free_ips NOT EMPTY: MOVE ip from _free_ips to alloc_ips and store
+# IF _free_ips EMPTY: INCREMENT _ip_index[1] by 1, if =255 {set _ip_index[1]=1, INCREMENT _ip_index[0] by 1}
+_alloc_ip ()
+{
+    if [ "$_free_ips" ]; then
+
+    fi
+}
+
+_dealloc_ip ()
+
 _expand_macros ()
 {
+    echo "$_macros"
+    # for _macro in $_macros; do
+	# case $_macro in
+
+	    # @FREEIP@)
+	    
     for _macro in $_macros; do
         case $_macro in
 
@@ -125,7 +151,8 @@ _process_container ()
     echo "$_pipework_vars"
 
     # Picks the macros formed by @*****@ out of the _pipework_vars and stores them in _macros, then calls on _expand_macros to parse them to information
-    # Planned macro support: @NODE_NUM@,
+    # Planned macro support: @UNIQUE_IP@
+    # @UNIQUE_IP@: Assigns totally unique IP to container
     _macros="$(echo -e "$_pipework_vars" | grep -o -e '@CONTAINER_NAME@\|@CONTAINER_ID@\|@HOSTNAME@\|@INSTANCE@\|@COMPOSE_PROJECT_NAME@\|@NODE_NUM@' | sort | uniq)"
     [ "$_macros" ] && _expand_macros;
 
