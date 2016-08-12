@@ -172,6 +172,15 @@ _process_container ()
     event="$2" # start|stop
     unset $(env | grep -e ".*pipework.*" | cut -d= -f1)
 
+    # If the container is dying, initiate some proper cleanup and exit
+    if [ "$event" = "die" ]; then
+        cleanup_wait="$_default_cleanup_wait"
+        [ "$_pipework_cleanup_wait" ] && cleanup_wait="$_pipework_cleanup_wait"
+        [ "$pipework_cleanup_wait" ] && cleanup_wait="$pipework_cleanup_wait"
+        sleep $cleanup_wait
+        return 0
+    fi
+    
     # Next 3 lines parses the docker inspect of the container and grabs the pertinent information out (env vars that pipework uses)
     _pipework_vars="$(docker inspect --format '{{range $index, $val := .Config.Env }}{{printf "%s\"\n" $val}}{{end}}' $c12id | grep -e 'pipework_cmd.*=\|^pipework_key=\|pipework_host_route.*='| sed -e 's/^/export \"/g')"
     [ "$_pipework_vars" ] || return 0
@@ -189,16 +198,6 @@ _process_container ()
 
     _pipework_cmds="$(env | grep -o -e '[^=]*pipework_cmd[^=]*' | sort)"
     [ "$_pipework_cmds" ]  || return 0
-
-
-    # If the container is dying, initiate some proper cleanup and exit
-    if [ "$event" = "die" ]; then
-        cleanup_wait="$_default_cleanup_wait"
-        [ "$_pipework_cleanup_wait" ] && cleanup_wait="$_pipework_cleanup_wait"
-        [ "$pipework_cleanup_wait" ] && cleanup_wait="$pipework_cleanup_wait"
-        sleep $cleanup_wait
-        return 0
-    fi
 
     # If the event is not death, then the container has started and as such we need to run pipework
     for pipework_cmd_varname in $_pipework_cmds; do
