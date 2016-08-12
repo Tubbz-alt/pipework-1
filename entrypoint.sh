@@ -71,11 +71,16 @@ _dealloc_ip ()
 _expand_macros ()
 {
     echo "$_macros"
-    # for _macro in $_macros; do
-	# case $_macro in
+    for _macro in $_macros; do
+	case $_macro in
 
-	    # @FREEIP@)
-	    
+	    @FREEIP@)
+	    ip_to_alloc=_alloc_ip()
+	    _pipework_vars="$(echo "$_pipework_vars" | sed -e "s|@FREEIP@|${ip_to_alloc}|g")"
+            ;;
+	esac
+    done
+    
     for _macro in $_macros; do
         case $_macro in
 
