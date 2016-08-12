@@ -40,10 +40,10 @@ _cleanup ()
 }
 trap _cleanup TERM INT QUIT HUP
 
-_get_free_ip ()
-{
-    
-}
+# _get_free_ip ()
+# {
+#    
+# }
 
 
 # IF _free_ips NOT EMPTY: MOVE ip from _free_ips to alloc_ips and store
@@ -52,21 +52,28 @@ _alloc_ip ()
 {
     if [ "$_free_ips" ]; then
 	_ip_to_alloc=${_free_ips[0]}
-	unset _free_ips[0]
+        _free_ips=(${_free_ips[@]:$((1))})
 	_alloc_ips[${#_alloc_ips[@]}]=$_ip_to_alloc
+	#echo "$_ip_to_alloc"
     else
-	_ip_index[1]+=1
+	_ip_index[1]=$(expr "${_ip_index[1]}" + "1")
 	if [ "${_ip_index[1]}" -eq 255 ]; then
 	   _ip_index[1]=1
-	   _ip_index[0]+=1
+	   _ip_index[0]=$(expr "${_ip_index[0]}" + "1")
 	fi
 	_ip_to_alloc="192.@NODE_NUM@.${_ip_index[0]}.${_ip_index[1]}"
 	_alloc_ips[${#_alloc_ips[@]}]=$_ip_to_alloc
+	#echo "$_ip_to_alloc ${_ip_index[@]}"
     fi
-    return _ip_to_alloc
 }
 
 _dealloc_ip ()
+{
+    _ip_to_dealloc=("$1")
+    _free_ips[${#_free_ips[@]}]=$_ip_to_dealloc
+    _alloc_ips=( "${_alloc_ips[@]/#%$_ip_to_dealloc}" )
+}
+
 
 _expand_macros ()
 {
@@ -75,13 +82,16 @@ _expand_macros ()
 	case $_macro in
 
 	    @FREEIP@)
-	    ip_to_alloc=_alloc_ip
-	    _pipework_vars="$(echo "$_pipework_vars" | sed -e "s|@FREEIP@|${ip_to_alloc}|g")"
+	    _alloc_ip
+	    _pipework_vars="$(echo "$_pipework_vars" | sed -e "s|@FREEIP@|${_ip_to_alloc}|g")"
             ;;
 	esac
     done
     
+    echo "$_pipework_vars"
     echo "$_macros"
+
+    _macros="$(echo -e "$_pipework_vars" | grep -o -e '@CONTAINER_NAME@\|@CONTAINER_ID@\|@HOSTNAME@\|@INSTANCE@\|@COMPOSE_PROJECT_NAME@\|@NODE_NUM@\|@FREEIP@' | sort | uniq)"
 
     for _macro in $_macros; do
         case $_macro in
