@@ -75,12 +75,14 @@ _expand_macros ()
 	case $_macro in
 
 	    @FREEIP@)
-	    ip_to_alloc=_alloc_ip()
+	    ip_to_alloc=_alloc_ip
 	    _pipework_vars="$(echo "$_pipework_vars" | sed -e "s|@FREEIP@|${ip_to_alloc}|g")"
             ;;
 	esac
     done
     
+    echo "$_macros"
+
     for _macro in $_macros; do
         case $_macro in
 
@@ -169,7 +171,7 @@ _process_container ()
     # Picks the macros formed by @*****@ out of the _pipework_vars and stores them in _macros, then calls on _expand_macros to parse them to information
     # Planned macro support: @UNIQUE_IP@
     # @UNIQUE_IP@: Assigns totally unique IP to container
-    _macros="$(echo -e "$_pipework_vars" | grep -o -e '@CONTAINER_NAME@\|@CONTAINER_ID@\|@HOSTNAME@\|@INSTANCE@\|@COMPOSE_PROJECT_NAME@\|@NODE_NUM@' | sort | uniq)"
+    _macros="$(echo -e "$_pipework_vars" | grep -o -e '@CONTAINER_NAME@\|@CONTAINER_ID@\|@HOSTNAME@\|@INSTANCE@\|@COMPOSE_PROJECT_NAME@\|@NODE_NUM@\|@FREEIP@' | sort | uniq)"
     [ "$_macros" ] && _expand_macros;
 
     eval $_pipework_vars
